@@ -37,7 +37,7 @@ export default function LoginPage() {
         setStatus("Account created. If Supabase asks for email confirmation, verify your email, then log in here.");
         setMode("login");
       } else {
-        router.push(mode === "signup" ? "/onboarding" : "/");
+        router.push(mode === "signup" ? "/onboarding" : "/dashboard");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed.");
@@ -151,7 +151,7 @@ export default function LoginPage() {
                 onClick={() => {
                   localStorage.setItem("studymind:mode", "demo");
                   localStorage.setItem("studymind:user_id", "demo-user");
-                  router.push("/");
+                  router.push("/dashboard");
                 }}
                 className="w-full relative overflow-hidden group rounded-xl bg-transparent border border-white/10 py-3 text-white/70 font-medium transition-all duration-300 hover:bg-white/5 hover:text-white"
               >

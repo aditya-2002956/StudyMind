@@ -192,7 +192,7 @@ export default function QuizPage() {
                 )}
                 <div className="flex flex-col sm:flex-row justify-center gap-3">
                   <button
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push('/dashboard')}
                     className="px-8 py-3 rounded-full bg-white text-deepSpace font-bold hover:bg-neonCyan transition-all duration-300 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_30px_rgba(0,209,255,0.4)]"
                   >
                     Return to Dashboard
