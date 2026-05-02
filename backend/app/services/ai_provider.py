@@ -107,11 +107,48 @@ class AIProvider:
         weak_topics: list[str],
     ) -> str:
         focus = topic or (weak_topics[0] if weak_topics else "the current concept")
+        normalized = message.lower().strip()
+        if any(phrase in normalized for phrase in ["i dont know", "i don't know", "idk", "no idea", "stuck", "confused"]):
+            hint = self._starter_hint(subject, focus)
+            return (
+                f"No worries. When you do not know where to start, begin with the smallest useful idea in **{focus}**.\n\n"
+                f"{hint}\n\n"
+                "Try answering just this one question: what is the main object or process this topic is about?"
+            )
+
         return (
-            f"Let's reason through {focus} in {subject}. You asked: '{message}'.\n\n"
-            "First question: what information is given in the problem, and what are you trying to find?\n"
-            "Hint: write the known values on one side and the unknown on the other. "
-            "After that, tell me which rule or formula you think might connect them."
+            f"Let's work through **{focus}** in {subject}.\n\n"
+            f"Your doubt: \"{message}\"\n\n"
+            f"{self._starter_hint(subject, focus)}\n\n"
+            "Now tell me: which part feels unclear: the definition, the formula/rule, or how to apply it in a question?"
+        )
+
+    def _starter_hint(self, subject: str, focus: str) -> str:
+        text = f"{subject} {focus}".lower()
+        if any(word in text for word in ["cell", "biology"]):
+            return (
+                "Think of a cell like a tiny working unit. First identify the part being discussed: "
+                "cell membrane controls entry/exit, nucleus controls instructions, mitochondria release energy, "
+                "and cytoplasm is where many reactions happen."
+            )
+        if any(word in text for word in ["permutation", "combination", "counting"]):
+            return (
+                "Ask: does order matter? If order matters, it is usually a permutation. "
+                "If only selection matters, it is usually a combination."
+            )
+        if any(word in text for word in ["trigonometry", "trig", "sin", "cos", "tan"]):
+            return (
+                "Start from the triangle/unit-circle meaning: sin relates to vertical/opposite, "
+                "cos to horizontal/adjacent, and tan is sin divided by cos."
+            )
+        if any(word in text for word in ["algebra", "equation", "polynomial"]):
+            return (
+                "First separate what is known from what is unknown. Then look for the operation that can undo the expression: "
+                "addition/subtraction, multiplication/division, powers, or factoring."
+            )
+        return (
+            "Break the topic into three pieces: definition, key rule, and one example. "
+            "You only need the first piece before the rest starts making sense."
         )
 
     def _gemini_socratic_tutor(
