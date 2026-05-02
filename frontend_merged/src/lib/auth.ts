@@ -11,6 +11,14 @@ type SupabaseAuthResponse = {
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+function getAuthCallbackUrl() {
+  if (typeof window === "undefined") {
+    return "https://study-mind-neon.vercel.app/auth/callback";
+  }
+
+  return `${window.location.origin}/auth/callback`;
+}
+
 function requireSupabaseConfig() {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     throw new Error("Supabase login is not configured on this deployment.");
@@ -39,7 +47,9 @@ async function supabaseAuthFetch(path: string, body: object): Promise<SupabaseAu
 }
 
 export async function signUpWithEmail(email: string, password: string) {
-  return supabaseAuthFetch("signup", { email, password });
+  localStorage.setItem("studymind:pending_email", email);
+  const redirectTo = encodeURIComponent(getAuthCallbackUrl());
+  return supabaseAuthFetch(`signup?redirect_to=${redirectTo}`, { email, password });
 }
 
 export async function signInWithEmail(email: string, password: string) {
@@ -58,4 +68,26 @@ export function saveAuthSession(data: SupabaseAuthResponse) {
   if (data.user?.email) {
     localStorage.setItem("studymind:email", data.user.email);
   }
+}
+
+export async function fetchAuthUser(accessToken: string) {
+  requireSupabaseConfig();
+
+  const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: {
+      apikey: SUPABASE_KEY || "",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const data = (await response.json().catch(() => ({}))) as SupabaseAuthResponse["user"] & {
+    error?: string;
+    msg?: string;
+  };
+
+  if (!response.ok) {
+    throw new Error(data.error || data.msg || `Could not fetch verified user with ${response.status}`);
+  }
+
+  return data;
 }
