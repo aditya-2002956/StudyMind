@@ -1,0 +1,2 @@
+# StudyMind
+AI STUDY PLANNER
