@@ -1,0 +1,93 @@
+# StudyMind Backend
+
+FastAPI backend for StudyMind, an AI-powered personalized study assistant built for a vibe-coding hackathon.
+
+## What It Does
+
+- Creates student profiles and subject goals
+- Generates quizzes for selected topics
+- Scores attempts and detects weak topics
+- Builds personalized study plans
+- Schedules spaced-repetition revision cards
+- Provides a tutor chat endpoint with local fallback responses
+- Exposes a progress dashboard
+
+The backend works without AI keys for demos. Add an OpenAI or Gemini key later and replace the `AIProvider` implementation in `app/services/ai_provider.py`.
+
+## Quick Start
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
+
+Open:
+
+- API: `http://127.0.0.1:8000`
+- Docs: `http://127.0.0.1:8000/docs`
+- Supabase health: `http://127.0.0.1:8000/health/supabase`
+
+## Example Flow
+
+1. `POST /api/v1/users/profile`
+2. `POST /api/v1/quizzes/generate`
+3. `POST /api/v1/attempts`
+4. `GET /api/v1/analysis/{user_id}`
+5. `POST /api/v1/planner/generate`
+6. `POST /api/v1/chat`
+7. `GET /api/v1/dashboard/{user_id}`
+
+## Environment
+
+Copy `.env.example` to `.env`.
+
+```bash
+copy .env.example .env
+```
+
+## Supabase Setup
+
+The backend is configured for Supabase through `.env`:
+
+- `SUPABASE_URL`
+- `SUPABASE_API_KEY`
+- `SUPABASE_ENABLED=true`
+
+Before running the API, open your Supabase project SQL editor and run:
+
+```sql
+-- see supabase_schema.sql
+```
+
+The schema creates:
+
+- `studymind_profiles`
+- `studymind_quizzes`
+- `studymind_attempts`
+- `studymind_revisions`
+
+For a hackathon demo, the SQL includes permissive anon/authenticated policies. For production, replace those policies with user-scoped Firebase/Supabase Auth rules.
+
+## Gemini Socratic Tutor
+
+The `/api/v1/chat` endpoint uses Gemini when `GEMINI_API_KEY` is present. Without a key, it falls back to a local Socratic response so the demo still works.
+
+1. Open Google AI Studio.
+2. Create or copy a Gemini API key.
+3. Add it to `.env`:
+
+```env
+GEMINI_API_KEY=your_google_ai_studio_key_here
+GEMINI_MODEL=gemini-2.5-flash
+```
+
+4. Restart the backend.
+5. Test `POST /api/v1/chat` in `http://127.0.0.1:8000/docs`.
+
+The chat response includes `provider`:
+
+- `gemini`: Gemini answered
+- `local`: no Gemini key was configured
+- `local-fallback`: Gemini failed, so the backend used the local tutor
