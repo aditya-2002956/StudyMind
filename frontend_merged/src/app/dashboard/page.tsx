@@ -10,6 +10,10 @@ import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+function onboardingCompleteKey(userId: string | null) {
+  return userId ? `studymind:onboarding_complete:${userId}` : "studymind:onboarding_complete";
+}
+
 export default function Dashboard() {
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
   const [canShowDashboard, setCanShowDashboard] = useState(false);
@@ -18,9 +22,15 @@ export default function Dashboard() {
   useEffect(() => {
     const hasSession = Boolean(localStorage.getItem("studymind:access_token"));
     const isDemo = localStorage.getItem("studymind:mode") === "demo";
+    const userId = localStorage.getItem("studymind:user_id");
 
     if (!hasSession && !isDemo) {
       router.replace("/login");
+      return;
+    }
+
+    if (hasSession && !isDemo && localStorage.getItem(onboardingCompleteKey(userId)) !== "true") {
+      router.replace("/onboarding");
       return;
     }
 

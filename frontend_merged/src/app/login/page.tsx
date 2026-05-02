@@ -6,6 +6,10 @@ import { useRouter } from "next/navigation";
 import { BrainCircuit, ArrowRight, Loader2 } from "lucide-react";
 import { saveAuthSession, signInWithEmail, signUpWithEmail } from "@/lib/auth";
 
+function onboardingCompleteKey(userId: string | null) {
+  return userId ? `studymind:onboarding_complete:${userId}` : "studymind:onboarding_complete";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("signup");
@@ -32,12 +36,23 @@ export default function LoginPage() {
 
       saveAuthSession(result);
       localStorage.setItem("studymind:mode", "signup");
+      const userId = result.user?.id || localStorage.getItem("studymind:user_id");
 
       if (mode === "signup" && !result.access_token) {
+        localStorage.removeItem(onboardingCompleteKey(userId));
         setStatus("Account created. If Supabase asks for email confirmation, verify your email, then log in here.");
         setMode("login");
       } else {
-        router.push(mode === "signup" ? "/onboarding" : "/dashboard");
+        if (mode === "signup") {
+          localStorage.removeItem(onboardingCompleteKey(userId));
+          localStorage.removeItem("studymind:onboarding");
+          localStorage.removeItem("studymind:materials");
+          router.push("/onboarding");
+          return;
+        }
+
+        const hasCompletedOnboarding = localStorage.getItem(onboardingCompleteKey(userId)) === "true";
+        router.push(hasCompletedOnboarding ? "/dashboard" : "/onboarding");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed.");

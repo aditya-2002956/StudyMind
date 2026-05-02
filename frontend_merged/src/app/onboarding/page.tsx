@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 
+function onboardingCompleteKey(userId: string | null) {
+  return userId ? `studymind:onboarding_complete:${userId}` : "studymind:onboarding_complete";
+}
+
 type OnboardingData = {
   name: string;
   educationSystem: string;
@@ -262,6 +266,7 @@ export default function OnboardingWizard() {
 
       localStorage.setItem("studymind:onboarding", JSON.stringify(onboarding));
       localStorage.setItem("studymind:materials", JSON.stringify(materialSearch));
+      localStorage.setItem(onboardingCompleteKey(realUserId), "true");
       router.push("/onboarding/overview");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not submit onboarding survey.");
