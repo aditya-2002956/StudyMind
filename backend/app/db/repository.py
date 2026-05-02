@@ -202,8 +202,13 @@ def save_onboarding(result: OnboardingResult) -> None:
     store.onboarding[result.user_id] = result
     store.profiles[result.user_id] = result.profile
     if repo := _supabase():
-        repo.save_onboarding(result)
-        repo.save_profile(result.profile)
+        try:
+            repo.save_onboarding(result)
+            repo.save_profile(result.profile)
+        except SupabaseError:
+            # Keep hackathon/demo flows working even if the Supabase table
+            # has not been migrated yet. Local memory remains the fallback.
+            pass
 
 
 def get_onboarding(user_id: str) -> OnboardingResult | None:

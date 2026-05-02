@@ -141,6 +141,44 @@ The onboarding result also returns `starter_material_sources`, currently seeded 
 
 Future notebook/material fetching should use these source links as the first retrieval targets before adding uploaded PDFs, college notes, or previous-year papers.
 
+## Study Material Search
+
+Use `POST /api/v1/materials/search` when the frontend needs syllabus-aware study material cards.
+
+Example:
+
+```json
+{
+  "education_system": "VTU B.E. CSE",
+  "class_level": "Semester 6",
+  "stream": "AI/ML/Data",
+  "subject": "Machine Learning",
+  "topic": "Regression",
+  "limit": 8
+}
+```
+
+For CBSE:
+
+```json
+{
+  "education_system": "CBSE",
+  "class_level": "Class 10",
+  "stream": "Secondary",
+  "subject": "Science",
+  "topic": "Electricity",
+  "limit": 8
+}
+```
+
+The response includes:
+
+- `results`: official source cards and internet-search cards
+- `search_queries`: source-specific search queries such as `site:vtu.ac.in ... syllabus PDF`
+- `note`: reminder that official sources should be preferred before random blogs
+
+This endpoint does not scrape copyrighted notes directly. It gives the frontend official syllabus/textbook links and safe search entry points. Later, a proper search API such as Tavily or SerpAPI can be added for live crawling, with source checks and PDF storage.
+
 ## Gemini Socratic Tutor
 
 The `/api/v1/chat` endpoint uses Gemini when `GEMINI_API_KEY` is present. Without a key, it falls back to a local Socratic response so the demo still works.

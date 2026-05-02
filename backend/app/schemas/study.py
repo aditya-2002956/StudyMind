@@ -7,6 +7,7 @@ class Difficulty(str, Enum):
     easy = "easy"
     medium = "medium"
     hard = "hard"
+    competitive = "competitive"
 
 
 class LearningPace(str, Enum):
@@ -54,6 +55,8 @@ class StudyMaterialSource(BaseModel):
     url: str
     source_type: str = "syllabus"
     notes: str | None = None
+    provider: str | None = None
+    relevance: float = Field(default=0.75, ge=0, le=1)
 
 
 class OnboardingSurveyCreate(BaseModel):
@@ -85,6 +88,26 @@ class OnboardingResult(BaseModel):
     starter_material_sources: list[StudyMaterialSource] = Field(default_factory=list)
     next_step: str
     created_at: datetime
+
+
+class MaterialSearchRequest(BaseModel):
+    education_system: str = Field(default="CBSE", description="CBSE, VTU B.E. CSE, or Other")
+    class_level: str | None = Field(default=None, description="Example: Class 10, Class 12, Semester 6")
+    stream: str | None = Field(default=None, description="Science, Commerce, Humanities, CSE Core, AI/ML/Data, etc.")
+    subject: str | None = None
+    topic: str | None = None
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class MaterialSearchResponse(BaseModel):
+    education_system: str
+    class_level: str | None = None
+    stream: str | None = None
+    subject: str | None = None
+    topic: str | None = None
+    results: list[StudyMaterialSource]
+    search_queries: list[str]
+    note: str
 
 
 class QuizGenerateRequest(BaseModel):
