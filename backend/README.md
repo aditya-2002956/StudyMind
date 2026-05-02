@@ -39,6 +39,54 @@ Open:
 6. `POST /api/v1/chat`
 7. `GET /api/v1/dashboard/{user_id}`
 
+## Auth Setup
+
+The backend supports two modes:
+
+- Demo mode: keep sending `user_id`, such as `demo-user`, in request bodies.
+- Login mode: sign in with Supabase Auth on the frontend, then send the Supabase access token to the backend.
+
+The demo mode is intentionally still supported for hackathon presentations.
+
+### Frontend Auth Flow
+
+After Supabase login, the frontend receives a session:
+
+```js
+const { data } = await supabase.auth.getSession();
+const token = data.session?.access_token;
+```
+
+Send that token to the backend:
+
+```js
+fetch("http://127.0.0.1:8000/api/v1/auth/me", {
+  headers: {
+    Authorization: `Bearer ${token}`
+  }
+});
+```
+
+If the token is valid, the backend returns:
+
+```json
+{
+  "id": "supabase-user-id",
+  "email": "student@example.com",
+  "role": "authenticated",
+  "is_demo": false
+}
+```
+
+When a logged-in request includes `Authorization: Bearer <token>`, the backend uses the Supabase user id. If the request also includes a different `user_id`, the backend rejects it.
+
+Useful logged-in routes:
+
+- `GET /api/v1/auth/me`
+- `GET /api/v1/users/me/profile`
+- `GET /api/v1/analysis/me/summary`
+- `GET /api/v1/dashboard/me/summary`
+
 ## Environment
 
 Copy `.env.example` to `.env`.

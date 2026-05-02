@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from typing import Annotated
 
-from app.schemas.study import ChatRequest, ChatResponse
+from fastapi import APIRouter, Depends
+
+from app.core.auth import get_optional_user, resolve_user_id
+from app.schemas.study import AuthUser, ChatRequest, ChatResponse
 from app.services.ai_provider import ai_provider
 from app.services.analysis_service import analyze_user
 
@@ -8,7 +11,11 @@ router = APIRouter()
 
 
 @router.post("", response_model=ChatResponse)
-def chat(payload: ChatRequest) -> ChatResponse:
+def chat(
+    payload: ChatRequest,
+    user: Annotated[AuthUser | None, Depends(get_optional_user)] = None,
+) -> ChatResponse:
+    payload.user_id = resolve_user_id(payload.user_id, user)
     analysis = analyze_user(payload.user_id)
     weak_topics = [item.topic for item in analysis.weak_topics]
     answer, provider = ai_provider.tutor_answer(

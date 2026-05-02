@@ -34,6 +34,13 @@ class StudentProfile(StudentProfileCreate):
     created_at: datetime
 
 
+class AuthUser(BaseModel):
+    id: str
+    email: str | None = None
+    role: str | None = None
+    is_demo: bool = False
+
+
 class QuizGenerateRequest(BaseModel):
     user_id: str
     subject: str
