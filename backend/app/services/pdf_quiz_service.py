@@ -45,9 +45,9 @@ def _extract_pdf_text(pdf_bytes: bytes) -> str:
 
     reader = PdfReader(BytesIO(pdf_bytes))
     pages: list[str] = []
-    for page in reader.pages[:12]:
+    for page in reader.pages[:30]:
         pages.append(page.extract_text() or "")
-    return "\n\n".join(pages)[:16000]
+    return "\n\n".join(pages)[:50000]
 
 
 def _subject_from_text(text: str, fallback: str) -> str:

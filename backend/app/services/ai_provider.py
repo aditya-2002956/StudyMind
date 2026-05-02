@@ -74,8 +74,8 @@ class AIProvider:
                     difficulty=difficulty,
                     internet_context=internet_context,
                 ))
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("Gemini PDF quiz failed: %s", self._safe_error(exc))
         return self._randomize_questions(self._local_quiz_from_text(subject, source_text, question_count, difficulty, topics))
 
     def tutor_answer(
@@ -432,17 +432,9 @@ class AIProvider:
                 )
             )
 
-        if len(quiz_questions) < question_count:
-            quiz_questions.extend(
-                self._local_quiz_from_text(
-                    subject,
-                    source_text,
-                    question_count - len(quiz_questions),
-                    difficulty,
-                    topics,
-                    start_index=len(quiz_questions),
-                )
-            )
+        if len(quiz_questions) < max(2, question_count // 2):
+            raise RuntimeError("Gemini did not return enough usable PDF-based questions.")
+
         return quiz_questions[:question_count]
 
     def _local_quiz_from_text(
@@ -460,7 +452,7 @@ class AIProvider:
         if "trigonometric functions" in text or "trigonometric ratios" in text or "radian" in text:
             return self._trigonometry_questions(subject, difficulty, question_count, start_index)
 
-        return self._generic_chapter_questions(subject, difficulty, question_count, topics, start_index)
+        return self._generic_chapter_questions(subject, source_text, difficulty, question_count, topics, start_index)
 
     def _permutation_combination_questions(
         self,
@@ -795,15 +787,31 @@ class AIProvider:
     def _generic_chapter_questions(
         self,
         subject: str,
+        source_text: str,
         difficulty: Difficulty,
         question_count: int,
         topics: list[str],
         start_index: int,
     ) -> list[QuizQuestion]:
-        usable_topics = [topic for topic in topics if len(topic) > 3] or ["Main concept", "Important definition", "Solved example"]
+        sentences = self._content_sentences(source_text)
+        if len(sentences) < 3:
+            raise RuntimeError("Could not extract enough meaningful text from this PDF to generate a non-generic quiz.")
+
+        key_terms = self._content_key_terms(source_text)
+        usable_topics = [topic for topic in topics if self._is_good_topic(topic)] or key_terms[:6] or ["Main concept"]
         selected: list[QuizQuestion] = []
         for offset in range(question_count):
             topic = usable_topics[(start_index + offset) % len(usable_topics)]
+            sentence = sentences[(start_index + offset) % len(sentences)]
+            phrase = self._key_phrase(sentence)
+            related = self._nearby_terms(topic, key_terms)
+            correct = self._content_correct_option(topic, phrase, difficulty)
+            options = [
+                correct,
+                f"Treat {topic} as an isolated word and ignore the surrounding explanation.",
+                f"Memorize the sentence \"{phrase}\" without understanding why it matters.",
+                f"Use an unrelated shortcut before identifying what {topic} means in this chapter.",
+            ]
             selected.append(
                 QuizQuestion(
                     id=f"q-chapter-{start_index + offset + 1}",
@@ -811,19 +819,17 @@ class AIProvider:
                     topic=topic,
                     difficulty=difficulty,
                     prompt=(
-                        f"A competitive exam asks a multi-step application from {topic} in {subject}. "
-                        "Which approach is most appropriate?"
+                        f"A competitive-level question from this PDF connects {topic} with {', '.join(related)}. "
+                        "What is the strongest first step?"
                         if difficulty == Difficulty.competitive
-                        else f"Which question would best test understanding of {topic} in the chapter {subject}?"
+                        else f"The PDF says: \"{phrase}\" What does this most strongly suggest about {topic}?"
                     ),
-                    options=[
-                        f"Apply {topic} to solve a new example from the chapter",
-                        f"Copy one sentence containing {topic} without using it",
-                        f"Ignore {topic} and answer from a different chapter",
-                        f"Memorize only the page number where {topic} appears",
-                    ],
+                    options=options,
                     correct_option_index=0,
-                    explanation=f"A useful quiz question should test whether the student can apply {topic}, not merely recognize a sentence.",
+                    explanation=(
+                        f"The uploaded PDF context links {topic} to this idea: {phrase}. "
+                        "The best answer uses that meaning, rather than memorizing or ignoring the context."
+                    ),
                 )
             )
         return selected
@@ -843,6 +849,38 @@ class AIProvider:
         if len(cleaned) <= 95:
             return cleaned
         return cleaned[:92].rstrip() + "..."
+
+    def _is_good_topic(self, topic: str) -> bool:
+        lowered = topic.lower().strip()
+        bad = {
+            "solution", "exercise", "example", "chapter", "answers", "figure", "page",
+            "different", "following", "question", "questions", "therefore", "hence",
+            "given", "using", "based", "read", "learn",
+        }
+        return len(lowered) > 3 and lowered not in bad and not re.fullmatch(r"[a-z]*\d+[a-z]*", lowered)
+
+    def _content_key_terms(self, source_text: str) -> list[str]:
+        phrases = re.findall(r"\b[A-Z][A-Za-z]+(?:\s+(?:and|of|the|[A-Z][A-Za-z]+)){0,3}\b", source_text)
+        counts: dict[str, int] = {}
+        for phrase in phrases:
+            cleaned = re.sub(r"\s+", " ", phrase).strip()
+            if not self._is_good_topic(cleaned):
+                continue
+            counts[cleaned] = counts.get(cleaned, 0) + 1
+        if counts:
+            return [term for term, _ in sorted(counts.items(), key=lambda item: item[1], reverse=True)[:10]]
+        return self._topics_from_text(source_text)
+
+    def _nearby_terms(self, topic: str, terms: list[str]) -> list[str]:
+        related = [term for term in terms if term.lower() != topic.lower()][:2]
+        return related or ["the key definition", "the worked examples"]
+
+    def _content_correct_option(self, topic: str, phrase: str, difficulty: Difficulty) -> str:
+        if difficulty == Difficulty.hard:
+            return f"Use the idea in the sentence to solve a new problem involving {topic}."
+        if difficulty == Difficulty.competitive:
+            return f"Identify the rule behind {topic}, then test it on a new case rather than copying the text."
+        return f"Connect {topic} to the meaning of the sentence and explain it in your own words."
 
     def _chapter_profile(self, source_text: str, fallback_subject: str) -> dict[str, object]:
         text = source_text.lower()
