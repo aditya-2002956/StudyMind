@@ -7,7 +7,7 @@ import httpx
 
 from app.core.config import settings
 from app.db.memory import store
-from app.schemas.study import AttemptResult, Quiz, RevisionCard, StudentProfile
+from app.schemas.study import AttemptResult, OnboardingResult, Quiz, RevisionCard, StudentProfile
 
 
 class SupabaseError(RuntimeError):
@@ -70,6 +70,27 @@ class SupabaseRepository:
             params={"user_id": f"eq.{user_id}", "select": "payload", "limit": "1"},
         )
         return StudentProfile.model_validate(rows[0]["payload"]) if rows else None
+
+    def save_onboarding(self, result: OnboardingResult) -> None:
+        self._request(
+            "POST",
+            "studymind_onboarding",
+            params={"on_conflict": "user_id"},
+            json={
+                "user_id": result.user_id,
+                "payload": result.model_dump(mode="json"),
+                "created_at": result.created_at.isoformat(),
+            },
+            prefer="resolution=merge-duplicates",
+        )
+
+    def get_onboarding(self, user_id: str) -> OnboardingResult | None:
+        rows = self._request(
+            "GET",
+            "studymind_onboarding",
+            params={"user_id": f"eq.{user_id}", "select": "payload", "limit": "1"},
+        )
+        return OnboardingResult.model_validate(rows[0]["payload"]) if rows else None
 
     def save_quiz(self, quiz: Quiz) -> None:
         self._request(
@@ -175,6 +196,24 @@ def get_profile(user_id: str) -> StudentProfile | None:
             store.profiles[user_id] = profile
             return profile
     return store.profiles.get(user_id)
+
+
+def save_onboarding(result: OnboardingResult) -> None:
+    store.onboarding[result.user_id] = result
+    store.profiles[result.user_id] = result.profile
+    if repo := _supabase():
+        repo.save_onboarding(result)
+        repo.save_profile(result.profile)
+
+
+def get_onboarding(user_id: str) -> OnboardingResult | None:
+    if repo := _supabase():
+        result = repo.get_onboarding(user_id)
+        if result:
+            store.onboarding[user_id] = result
+            store.profiles[user_id] = result.profile
+            return result
+    return store.onboarding.get(user_id)
 
 
 def save_quiz(quiz: Quiz) -> None:

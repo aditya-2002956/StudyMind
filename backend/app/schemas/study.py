@@ -41,6 +41,52 @@ class AuthUser(BaseModel):
     is_demo: bool = False
 
 
+class StudyDomain(BaseModel):
+    name: str
+    confidence: float = Field(ge=0, le=1)
+    reason: str
+    suggested_subjects: list[str] = Field(default_factory=list)
+    source: str | None = None
+
+
+class StudyMaterialSource(BaseModel):
+    title: str
+    url: str
+    source_type: str = "syllabus"
+    notes: str | None = None
+
+
+class OnboardingSurveyCreate(BaseModel):
+    user_id: str
+    name: str
+    grade_level: str = "college"
+    target_exam: str | None = None
+    current_subjects: list[str] = Field(default_factory=list)
+    goals: list[str] = Field(default_factory=list)
+    weak_areas: list[str] = Field(default_factory=list)
+    strong_areas: list[str] = Field(default_factory=list)
+    preferred_learning_style: str = "mixed"
+    weekly_hours: int = Field(default=7, ge=1, le=80)
+    wants_notebooks: bool = True
+    wants_study_materials: bool = True
+    material_sources: list[str] = Field(
+        default_factory=list,
+        description="Future source hints such as school notes, PDFs, YouTube, NCERT, JEE, GATE, etc.",
+    )
+
+
+class OnboardingResult(BaseModel):
+    user_id: str
+    profile: StudentProfile
+    recommended_domains: list[StudyDomain]
+    suggested_next_subjects: list[str]
+    notebook_needs: list[str]
+    study_material_needs: list[str]
+    starter_material_sources: list[StudyMaterialSource] = Field(default_factory=list)
+    next_step: str
+    created_at: datetime
+
+
 class QuizGenerateRequest(BaseModel):
     user_id: str
     subject: str

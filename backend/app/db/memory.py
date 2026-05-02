@@ -1,4 +1,4 @@
-from app.schemas.study import AttemptResult, Quiz, RevisionCard, StudentProfile
+from app.schemas.study import AttemptResult, OnboardingResult, Quiz, RevisionCard, StudentProfile
 
 
 class MemoryStore:
@@ -7,6 +7,7 @@ class MemoryStore:
         self.quizzes: dict[str, Quiz] = {}
         self.attempts: dict[str, list[AttemptResult]] = {}
         self.revisions: dict[str, list[RevisionCard]] = {}
+        self.onboarding: dict[str, OnboardingResult] = {}
 
 
 store = MemoryStore()

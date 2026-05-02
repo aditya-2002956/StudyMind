@@ -32,12 +32,13 @@ Open:
 ## Example Flow
 
 1. `POST /api/v1/users/profile`
-2. `POST /api/v1/quizzes/generate`
-3. `POST /api/v1/attempts`
-4. `GET /api/v1/analysis/{user_id}`
-5. `POST /api/v1/planner/generate`
-6. `POST /api/v1/chat`
-7. `GET /api/v1/dashboard/{user_id}`
+2. `POST /api/v1/onboarding/survey`
+3. `POST /api/v1/quizzes/generate`
+4. `POST /api/v1/attempts`
+5. `GET /api/v1/analysis/{user_id}`
+6. `POST /api/v1/planner/generate`
+7. `POST /api/v1/chat`
+8. `GET /api/v1/dashboard/{user_id}`
 
 ## Auth Setup
 
@@ -112,11 +113,33 @@ Before running the API, open your Supabase project SQL editor and run:
 The schema creates:
 
 - `studymind_profiles`
+- `studymind_onboarding`
 - `studymind_quizzes`
 - `studymind_attempts`
 - `studymind_revisions`
 
 For a hackathon demo, the SQL includes permissive anon/authenticated policies. For production, replace those policies with user-scoped Firebase/Supabase Auth rules.
+
+## Indian / VTU Domain Detection
+
+The onboarding survey is tuned for Indian engineering students, with VTU B.E. CSE as the starter context. When the survey mentions VTU, B.E., CSE, Computer Science, semester subjects, placements, or GATE-style prep, StudyMind can return domains such as:
+
+- VTU B.E. CSE Core
+- VTU Programming and Labs
+- VTU AI, ML and Data
+- VTU Systems, Cloud and Security
+- Indian Competitive and Placement Prep
+- Indian Engineering Foundations
+
+The onboarding result also returns `starter_material_sources`, currently seeded from VTU's official B.E. scheme and syllabus page:
+
+- https://vtu.ac.in/b-e-scheme-syllabus/
+- https://vtu.ac.in/pdf/2022_3to8/38csesch.pdf
+- https://vtu.ac.in/pdf/2022_3to8/2csessyll.pdf
+- https://vtu.ac.in/pdf/2022_3to8/3csesyll.pdf
+- https://vtu.ac.in/pdf/2022_3to8/6csesyll.pdf
+
+Future notebook/material fetching should use these source links as the first retrieval targets before adding uploaded PDFs, college notes, or previous-year papers.
 
 ## Gemini Socratic Tutor
 
