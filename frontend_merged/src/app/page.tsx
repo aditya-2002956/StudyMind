@@ -8,11 +8,32 @@ import { FocusMode } from "@/components/FocusMode";
 import { motion } from "framer-motion";
 import { AlertTriangle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Dashboard() {
   const [isFocusModeOpen, setIsFocusModeOpen] = useState(false);
+  const [canShowDashboard, setCanShowDashboard] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const hasSession = Boolean(localStorage.getItem("studymind:access_token"));
+    const isDemo = localStorage.getItem("studymind:mode") === "demo";
+
+    if (!hasSession && !isDemo) {
+      router.replace("/login");
+      return;
+    }
+
+    setCanShowDashboard(true);
+  }, [router]);
+
+  if (!canShowDashboard) {
+    return (
+      <main className="min-h-screen bg-deepSpace flex items-center justify-center text-white/60">
+        Opening StudyMind...
+      </main>
+    );
+  }
 
   return (
     <main className="flex-1 flex flex-col relative overflow-hidden">
