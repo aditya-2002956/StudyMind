@@ -1,4 +1,5 @@
 import json
+import logging
 import random
 import re
 
@@ -6,6 +7,8 @@ import httpx
 
 from app.core.config import settings
 from app.schemas.study import ChatMessage, Difficulty, QuizQuestion
+
+logger = logging.getLogger(__name__)
 
 
 class AIProvider:
@@ -94,10 +97,12 @@ class AIProvider:
                     history=history or [],
                     context=context,
                 ), "gemini"
-            except Exception:
-                return self._local_socratic_tutor(subject, topic, message, weak_topics), "local-fallback"
+            except Exception as exc:
+                logger.warning("Gemini tutor failed: %s", self._safe_error(exc))
+                return self._local_socratic_tutor(subject, topic, message, weak_topics, history or [], context), "local-fallback"
 
-        return self._local_socratic_tutor(subject, topic, message, weak_topics), "local"
+        logger.warning("Gemini tutor skipped: GEMINI_API_KEY is not configured.")
+        return self._local_socratic_tutor(subject, topic, message, weak_topics, history or [], context), "local"
 
     def _local_socratic_tutor(
         self,
@@ -105,23 +110,133 @@ class AIProvider:
         topic: str | None,
         message: str,
         weak_topics: list[str],
+        history: list[ChatMessage] | None = None,
+        context: str | None = None,
     ) -> str:
         focus = topic or (weak_topics[0] if weak_topics else "the current concept")
         normalized = message.lower().strip()
+        previous_ai = self._last_ai_message(history or [])
+
         if any(phrase in normalized for phrase in ["i dont know", "i don't know", "idk", "no idea", "stuck", "confused"]):
             hint = self._starter_hint(subject, focus)
             return (
-                f"No worries. When you do not know where to start, begin with the smallest useful idea in **{focus}**.\n\n"
+                f"No worries. When you do not know where to start, begin with the smallest useful idea in {focus}.\n\n"
                 f"{hint}\n\n"
                 "Try answering just this one question: what is the main object or process this topic is about?"
             )
 
+        if any(word in normalized for word in ["elaborate", "explain more", "detail", "more", "expand"]):
+            return self._elaborate_fallback(subject, focus, previous_ai)
+
+        if any(word in normalized for word in ["rule", "formula", "principle", "law"]):
+            return self._rule_fallback(subject, focus)
+
+        if any(word in normalized for word in ["example", "practice", "question"]):
+            return self._example_fallback(subject, focus)
+
         return (
-            f"Let's work through **{focus}** in {subject}.\n\n"
+            f"Let's work through {focus} in {subject}.\n\n"
             f"Your doubt: \"{message}\"\n\n"
             f"{self._starter_hint(subject, focus)}\n\n"
-            "Now tell me: which part feels unclear: the definition, the formula/rule, or how to apply it in a question?"
+            "Which part feels unclear: the definition, the rule, or how to apply it in a question?"
         )
+
+    def _elaborate_fallback(self, subject: str, focus: str, previous_ai: str | None) -> str:
+        text = f"{subject} {focus}".lower()
+        if any(word in text for word in ["cell", "biology"]):
+            return (
+                "Sure. Cell Biology is basically the study of how cells stay alive and do work.\n\n"
+                "A simple way to remember it:\n"
+                "1. Cell membrane: the gatekeeper. It decides what enters and leaves.\n"
+                "2. Nucleus: the control center. It stores DNA and gives instructions.\n"
+                "3. Mitochondria: the energy unit. It helps release usable energy.\n"
+                "4. Cytoplasm: the workspace where many reactions happen.\n\n"
+                "If a question asks about control, think nucleus. If it asks about energy, think mitochondria. "
+                "If it asks about movement in/out, think membrane.\n\n"
+                "Quick check: which organelle would be most responsible for controlling cell activities?"
+            )
+        if any(word in text for word in ["permutation", "combination", "counting"]):
+            return (
+                "Sure. The key idea is order.\n\n"
+                "Permutation means arrangement, so order matters. ABC and BAC are different.\n"
+                "Combination means selection, so order does not matter. Choosing A, B, C is the same as choosing C, B, A.\n\n"
+                "Use this test: if swapping positions changes the result, use permutation. If swapping positions does not matter, use combination.\n\n"
+                "Quick check: choosing 3 students for a team: permutation or combination?"
+            )
+        if previous_ai:
+            return (
+                "Let me break that down more simply.\n\n"
+                "The previous idea was pointing you toward the core concept, not the final answer. "
+                "First identify what the topic is asking about, then connect it to one rule or example.\n\n"
+                f"For {focus}, start with: what is being defined, what rule is used, and what changes in the example?\n\n"
+                "Which of those three feels unclear?"
+            )
+        return (
+            f"Sure. {focus} becomes easier if you split it into definition, rule, and example.\n\n"
+            "Definition: what the idea means.\n"
+            "Rule: what pattern or formula it follows.\n"
+            "Example: how it appears in a real question.\n\n"
+            "Which one should I explain first?"
+        )
+
+    def _rule_fallback(self, subject: str, focus: str) -> str:
+        text = f"{subject} {focus}".lower()
+        if any(word in text for word in ["cell", "biology"]):
+            return (
+                "For Cell Biology, do not think of one formula. Think of function rules:\n\n"
+                "Membrane controls entry and exit.\n"
+                "Nucleus controls cell activities using DNA.\n"
+                "Mitochondria helps release energy.\n"
+                "Ribosomes make proteins.\n\n"
+                "So when a question names a function, match it to the organelle. Which function is your question asking about?"
+            )
+        if any(word in text for word in ["permutation", "combination", "counting"]):
+            return (
+                "The rule is: order matters means permutation; order does not matter means combination.\n\n"
+                "Permutation: nPr = n! / (n-r)!\n"
+                "Combination: nCr = n! / (r!(n-r)!)\n\n"
+                "Before using either formula, ask: am I arranging or only selecting?"
+            )
+        return (
+            f"The rule for {focus} depends on the question type. First identify whether it asks for a definition, comparison, calculation, or application.\n\n"
+            "What exact line or option is confusing you?"
+        )
+
+    def _example_fallback(self, subject: str, focus: str) -> str:
+        text = f"{subject} {focus}".lower()
+        if any(word in text for word in ["cell", "biology"]):
+            return (
+                "Practice question: Which cell part controls what enters and leaves the cell?\n\n"
+                "A. Nucleus\n"
+                "B. Cell membrane\n"
+                "C. Mitochondria\n"
+                "D. Cytoplasm\n\n"
+                "Hint: look for the part that acts like a gatekeeper. What option fits?"
+            )
+        if any(word in text for word in ["permutation", "combination", "counting"]):
+            return (
+                "Practice question: In how many ways can 3 students stand in a line from a group of 5?\n\n"
+                "Hint: standing in a line means order matters, so this is a permutation. "
+                "What would be the first multiplication expression?"
+            )
+        return (
+            f"Practice question for {focus}: explain the main idea in one sentence, then give one example where it is used.\n\n"
+            "Try the one-sentence definition first."
+        )
+
+    def _last_ai_message(self, history: list[ChatMessage]) -> str | None:
+        for item in reversed(history):
+            if item.role in {"assistant", "ai", "model"}:
+                return item.content
+        return None
+
+    def _safe_error(self, exc: Exception) -> str:
+        if isinstance(exc, httpx.HTTPStatusError):
+            body = exc.response.text[:500]
+            if settings.gemini_api_key:
+                body = body.replace(settings.gemini_api_key, "[redacted]")
+            return f"{exc.__class__.__name__}: status={exc.response.status_code} body={body}"
+        return f"{exc.__class__.__name__}: {str(exc)[:500]}"
 
     def _starter_hint(self, subject: str, focus: str) -> str:
         text = f"{subject} {focus}".lower()
