@@ -4,6 +4,8 @@ import { motion } from "framer-motion";
 import { TopBar } from "@/components/TopBar";
 import { MessageSquare, Send, BrainCircuit, Sparkles, User } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
+import { apiFetch } from "@/lib/api";
+import { useStore } from "@/store/useStore";
 
 type Message = {
   id: string;
@@ -15,38 +17,92 @@ const initialMessages: Message[] = [
   {
     id: "1",
     role: "ai",
-    content: "Greetings. I am your Socratic AI Tutor. I notice you've been struggling with Thermodynamics concepts recently. Would you like to review the laws of thermodynamics, or do you have a specific question in mind?",
+    content: "Hi, I am your Socratic AI Tutor. Ask me a doubt, paste a question, or tell me where you got stuck. I will guide you with hints first, then steps if you need them.",
   }
 ];
+
+type ChatApiResponse = {
+  answer: string;
+  suggested_next_step: string;
+  used_context: string[];
+  provider: string;
+};
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [inputValue, setInputValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [provider, setProvider] = useState("gemini");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const weaknessTags = useStore((state) => state.weaknessTags);
+  const quizTopicStats = useStore((state) => state.quizTopicStats);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  const handleSend = () => {
-    if (!inputValue.trim()) return;
+  const buildTutorContext = () => {
+    const weakTopics = weaknessTags.map((item) => item.subtopic);
+    const topicSummary = quizTopicStats
+      .slice(-8)
+      .map((item) => `${item.subject} / ${item.topic}: ${item.correct}/${item.attempted} correct`)
+      .join("; ");
+    return {
+      weakTopics,
+      subject: weaknessTags[0]?.topic || quizTopicStats[0]?.subject || "General Study",
+      topic: weaknessTags[0]?.subtopic || quizTopicStats[0]?.topic || undefined,
+      context: topicSummary ? `Recent quiz performance: ${topicSummary}` : "No quiz performance yet.",
+    };
+  };
 
-    const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: inputValue };
+  const handleSend = async (overrideMessage?: string) => {
+    const outgoing = (overrideMessage || inputValue).trim();
+    if (!outgoing || isTyping) return;
+
+    const newUserMsg: Message = { id: Date.now().toString(), role: "user", content: outgoing };
     setMessages(prev => [...prev, newUserMsg]);
     setInputValue("");
     setIsTyping(true);
 
-    // Mock Socratic response delay
-    setTimeout(() => {
-      const newAiMsg: Message = { 
-        id: (Date.now() + 1).toString(), 
-        role: "ai", 
-        content: "That's an interesting perspective. Instead of giving you the direct formula, let's break it down. What do you think happens to the internal energy of the system when heat is added but no work is done?" 
+    try {
+      const tutorContext = buildTutorContext();
+      const response = await apiFetch<ChatApiResponse>("/api/v1/chat", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: localStorage.getItem("studymind:user_id") || "demo-user",
+          subject: tutorContext.subject,
+          topic: tutorContext.topic,
+          message: outgoing,
+          weak_topics: tutorContext.weakTopics,
+          context: tutorContext.context,
+          history: messages.slice(-8).map((item) => ({
+            role: item.role === "ai" ? "assistant" : "user",
+            content: item.content,
+          })),
+        }),
+      });
+
+      setProvider(response.provider);
+      const newAiMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: response.answer,
       };
       setMessages(prev => [...prev, newAiMsg]);
+    } catch (error) {
+      const fallback = error instanceof Error ? error.message : "The tutor could not respond.";
+      setMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: "ai",
+        content: `I could not reach the AI tutor just now. Try again in a moment.\n\nDetails: ${fallback}`,
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 2000);
+    }
+  };
+
+  const handleSummary = () => {
+    handleSend("Summarize my recent weak topics and give me a short 20-minute study plan.");
   };
 
   return (
@@ -72,7 +128,7 @@ export default function ChatPage() {
               </p>
             </div>
           </div>
-          <button className="hidden md:flex px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-all items-center gap-2">
+          <button onClick={handleSummary} className="hidden md:flex px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white/70 hover:text-white text-sm font-medium transition-all items-center gap-2">
             <Sparkles className="w-4 h-4 text-neonCyan" />
             Generate Summary
           </button>
@@ -126,6 +182,20 @@ export default function ChatPage() {
 
           {/* Input Area */}
           <div className="p-4 bg-black/20 border-t border-white/10 backdrop-blur-md">
+            <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-white/40">
+              <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10">
+                Provider: {provider}
+              </span>
+              {weaknessTags.slice(0, 3).map((item) => (
+                <button
+                  key={`${item.topic}-${item.subtopic}`}
+                  onClick={() => handleSend(`Help me understand ${item.subtopic} in ${item.topic} with one hint and one practice question.`)}
+                  className="px-3 py-1 rounded-full bg-red-400/10 border border-red-400/20 text-red-200 hover:bg-red-400/20"
+                >
+                  {item.subtopic}
+                </button>
+              ))}
+            </div>
             <div className="relative flex items-end gap-2">
               <textarea
                 value={inputValue}
@@ -141,7 +211,7 @@ export default function ChatPage() {
                 rows={1}
               />
               <button 
-                onClick={handleSend}
+                onClick={() => handleSend()}
                 disabled={!inputValue.trim() || isTyping}
                 className="absolute right-2 bottom-2 p-3 rounded-xl bg-neonCyan text-deepSpace hover:bg-white hover:shadow-[0_0_15px_rgba(0,209,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >

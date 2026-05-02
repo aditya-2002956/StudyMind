@@ -82,6 +82,7 @@ class AIProvider:
         message: str,
         weak_topics: list[str],
         history: list[ChatMessage] | None = None,
+        context: str | None = None,
     ) -> tuple[str, str]:
         if settings.gemini_api_key:
             try:
@@ -91,6 +92,7 @@ class AIProvider:
                     message=message,
                     weak_topics=weak_topics,
                     history=history or [],
+                    context=context,
                 ), "gemini"
             except Exception:
                 return self._local_socratic_tutor(subject, topic, message, weak_topics), "local-fallback"
@@ -119,9 +121,11 @@ class AIProvider:
         message: str,
         weak_topics: list[str],
         history: list[ChatMessage],
+        context: str | None,
     ) -> str:
         focus = topic or (weak_topics[0] if weak_topics else "the student's current topic")
         weak_context = ", ".join(weak_topics[:5]) if weak_topics else "No weak topics detected yet."
+        study_context = context.strip() if context else "No extra quiz/PDF/onboarding context was sent."
         contents = self._gemini_history(history)
         contents.append(
             {
@@ -132,6 +136,7 @@ class AIProvider:
                             f"Subject: {subject}\n"
                             f"Focus topic: {focus}\n"
                             f"Known weak topics: {weak_context}\n"
+                            f"Student/app context: {study_context}\n"
                             f"Student question: {message}"
                         )
                     }
@@ -145,20 +150,24 @@ class AIProvider:
                     {
                         "text": (
                             "You are StudyMind, an AI Socratic Tutor for students. "
-                            "Do not immediately give final answers unless the student explicitly asks for a final check. "
-                            "Guide with one or two targeted questions, small hints, and short explanations. "
-                            "Adapt to the student's weak topics. Keep the tone encouraging and simple. "
-                            "If the student asks for a solution, reveal it step by step and pause with a question. "
-                            "Never fabricate textbook citations or claim to know the student's unseen syllabus."
+                            "Your job is to make the student think, not to dump an answer. "
+                            "Use the weak topics and app context to personalize the explanation. "
+                            "Start with a brief diagnosis of what concept is being tested, then give one useful hint or micro-explanation. "
+                            "Ask exactly one targeted question at the end unless the student explicitly asks for a final answer. "
+                            "If the student asks for a solution, reveal it step by step and label the steps clearly. "
+                            "For Indian students, prefer CBSE/NCERT, VTU, JEE, KCET, GATE, and semester-exam framing when relevant. "
+                            "If the question is from an uploaded PDF, stay faithful to the provided context and say when more text is needed. "
+                            "Never fabricate textbook citations, page numbers, URLs, or claim to know unseen material. "
+                            "Keep the response concise, warm, and practical."
                         )
                     }
                 ]
             },
             "contents": contents,
             "generationConfig": {
-                "temperature": 0.45,
+                "temperature": 0.55,
                 "topP": 0.9,
-                "maxOutputTokens": 450,
+                "maxOutputTokens": 650,
             },
         }
 
@@ -782,7 +791,7 @@ class AIProvider:
     def _gemini_history(self, history: list[ChatMessage]) -> list[dict[str, object]]:
         contents: list[dict[str, object]] = []
         for item in history[-8:]:
-            role = "model" if item.role == "assistant" else "user"
+            role = "model" if item.role in {"assistant", "ai", "model"} else "user"
             contents.append({"role": role, "parts": [{"text": item.content}]})
         return contents
 

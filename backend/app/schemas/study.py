@@ -212,6 +212,8 @@ class ChatRequest(BaseModel):
     topic: str | None = None
     message: str
     history: list[ChatMessage] = Field(default_factory=list)
+    weak_topics: list[str] = Field(default_factory=list)
+    context: str | None = None
 
 
 class ChatResponse(BaseModel):

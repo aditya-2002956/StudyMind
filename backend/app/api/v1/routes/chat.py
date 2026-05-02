@@ -17,13 +17,14 @@ def chat(
 ) -> ChatResponse:
     payload.user_id = resolve_user_id(payload.user_id, user)
     analysis = analyze_user(payload.user_id)
-    weak_topics = [item.topic for item in analysis.weak_topics]
+    weak_topics = list(dict.fromkeys([item.topic for item in analysis.weak_topics] + payload.weak_topics))
     answer, provider = ai_provider.tutor_answer(
         subject=payload.subject,
         topic=payload.topic,
         message=payload.message,
         weak_topics=weak_topics,
         history=payload.history,
+        context=payload.context,
     )
     return ChatResponse(
         answer=answer,
