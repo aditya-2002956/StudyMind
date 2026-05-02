@@ -55,7 +55,12 @@ export default function LoginPage() {
         router.push(hasCompletedOnboarding ? "/dashboard" : "/onboarding");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed.");
+      const message = err instanceof Error ? err.message : "Authentication failed.";
+      if (message.toLowerCase().includes("rate limit")) {
+        setError("Supabase email rate limit exceeded. If you already created this account, switch to Log In. Otherwise wait a few minutes before trying Sign Up again.");
+      } else {
+        setError(message);
+      }
     } finally {
       setIsSubmitting(false);
     }

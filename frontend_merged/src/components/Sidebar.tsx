@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { LayoutDashboard, BrainCircuit, Calendar, MessageSquare, Settings, LogOut, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -12,21 +11,18 @@ const navItems = [
   { icon: BrainCircuit, label: "Quizzes", href: "/quizzes" },
   { icon: Calendar, label: "Planner", href: "/planner" },
   { icon: MessageSquare, label: "AI Tutor", href: "/chat" },
+  { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const [showSettingsMock, setShowSettingsMock] = useState(false);
 
   const handleLogout = () => {
-    // Clear any state/cookies here
+    localStorage.removeItem("studymind:access_token");
+    localStorage.removeItem("studymind:email");
+    localStorage.removeItem("studymind:mode");
     router.push("/login");
-  };
-
-  const handleSettings = () => {
-    setShowSettingsMock(true);
-    setTimeout(() => setShowSettingsMock(false), 3000);
   };
 
   return (
@@ -71,16 +67,7 @@ export function Sidebar() {
       </div>
 
       <div className="p-4 mt-auto relative">
-        {showSettingsMock && (
-          <div className="absolute -top-12 left-4 right-4 bg-neonCyan/20 text-neonCyan text-xs p-2 rounded-lg text-center border border-neonCyan/50 shadow-[0_0_10px_rgba(0,209,255,0.3)]">
-            Settings panel coming soon!
-          </div>
-        )}
         <div className="flex flex-col gap-2">
-          <button onClick={handleSettings} className="flex items-center gap-4 px-4 py-3 rounded-2xl text-white/60 hover:text-white hover:bg-white/5 transition-all duration-300">
-            <Settings className="w-5 h-5" />
-            <span className="font-medium">Settings</span>
-          </button>
           <button onClick={handleLogout} className="flex items-center gap-4 px-4 py-3 rounded-2xl text-white/60 hover:text-white hover:bg-red-500/10 hover:text-red-400 transition-all duration-300">
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Logout</span>
