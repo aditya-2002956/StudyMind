@@ -108,6 +108,58 @@ const defaultData: OnboardingData = {
   materialSources: ["VTU syllabus", "previous-year papers later", "college notes later"],
 };
 
+function demoOnboardingResult(data: OnboardingData): BackendOnboardingResult {
+  const isCbse = data.educationSystem === "CBSE";
+  return {
+    recommended_domains: [
+      {
+        name: isCbse ? `${data.classLevel} ${data.stream}` : `${data.educationSystem} ${data.stream}`,
+        confidence: 0.9,
+        reason: "Demo academic profile created from your selected board, degree, class, semester, and stream.",
+        source: "StudyMind demo data",
+      },
+      {
+        name: isCbse ? "NCERT and CBSE Curriculum" : `${data.university || "University"} syllabus map`,
+        confidence: 0.82,
+        reason: "Starter source preference added for syllabus-aware planning.",
+        source: "StudyMind demo data",
+      },
+    ],
+    suggested_next_subjects: data.currentSubjects.length ? data.currentSubjects : ["Mathematics", "Science", "Programming"],
+    notebook_needs: ["Weekly revision notebook", "Formula and definitions notebook", "Mistake log"],
+    study_material_needs: data.weakAreas.length ? data.weakAreas : ["Diagnostic quiz practice"],
+    starter_material_sources: [
+      {
+        title: isCbse ? "NCERT Textbooks" : "VTU B.E. Scheme Syllabus",
+        url: isCbse ? "https://ncert.nic.in/textbook.php" : "https://vtu.ac.in/b-e-scheme-syllabus/",
+        notes: isCbse ? "Official NCERT textbook source for CBSE-aligned learning." : "Official VTU syllabus source for semester mapping.",
+        provider: isCbse ? "NCERT" : "VTU",
+        relevance: 0.92,
+      },
+      {
+        title: isCbse ? "CBSE Academic Curriculum" : "VTUCircle Notes and Papers",
+        url: isCbse ? "https://cbseacademic.nic.in/curriculum_2026.html" : "https://www.vtucircle.com/",
+        notes: isCbse ? "CBSE curriculum and academic resources." : "Community notes and previous-year paper source for VTU students.",
+        provider: isCbse ? "CBSE" : "VTUCircle",
+        relevance: 0.84,
+      },
+    ],
+    next_step: "Take a diagnostic quiz or upload a chapter PDF.",
+  };
+}
+
+function demoMaterialSearch(data: OnboardingData): MaterialSearchResult {
+  const profile = demoOnboardingResult(data);
+  return {
+    results: profile.starter_material_sources,
+    search_queries: [
+      `${data.educationSystem} ${data.classLevel} ${data.stream} syllabus`,
+      `${data.currentSubjects[0] || data.stream} study material`,
+    ],
+    note: "Demo mode uses safe starter links. Real signup can call the backend material search.",
+  };
+}
+
 function chipButton(active: boolean) {
   return `py-2 px-4 rounded-full border transition-all duration-300 text-sm ${
     active
@@ -184,6 +236,13 @@ export default function OnboardingWizard() {
     };
 
     try {
+      if (appMode === "demo") {
+        localStorage.setItem("studymind:onboarding", JSON.stringify(demoOnboardingResult(data)));
+        localStorage.setItem("studymind:materials", JSON.stringify(demoMaterialSearch(data)));
+        router.push("/onboarding/overview");
+        return;
+      }
+
       const onboarding = await apiFetch<BackendOnboardingResult>("/api/v1/onboarding/survey", {
         method: "POST",
         body: JSON.stringify(payload),

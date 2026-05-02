@@ -1,11 +1,50 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { BrainCircuit, ArrowRight } from "lucide-react";
+import { BrainCircuit, ArrowRight, Loader2 } from "lucide-react";
+import { saveAuthSession, signInWithEmail, signUpWithEmail } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAuth = async () => {
+    setError("");
+    setStatus("");
+
+    if (!email.trim() || password.length < 6) {
+      setError("Enter an email and a password with at least 6 characters.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = mode === "signup"
+        ? await signUpWithEmail(email.trim(), password)
+        : await signInWithEmail(email.trim(), password);
+
+      saveAuthSession(result);
+      localStorage.setItem("studymind:mode", "signup");
+
+      if (mode === "signup" && !result.access_token) {
+        setStatus("Account created. If Supabase asks for email confirmation, verify your email, then log in here.");
+        setMode("login");
+      } else {
+        router.push("/onboarding");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Authentication failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-deepSpace flex items-center justify-center relative overflow-hidden p-6">
@@ -63,27 +102,55 @@ export default function LoginPage() {
               <p className="text-white/40 text-sm mt-2">Enter your nerve center</p>
             </div>
 
-            <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-2 gap-2 mb-6 rounded-xl bg-white/5 p-1 border border-white/10">
               <button
-                onClick={() => {
-                  localStorage.setItem("studymind:mode", "signup");
-                  localStorage.removeItem("studymind:progress");
-                  localStorage.removeItem("studymind:onboarding");
-                  localStorage.removeItem("studymind:materials");
-                  router.push("/onboarding");
-                }}
+                type="button"
+                onClick={() => setMode("signup")}
+                className={`rounded-lg py-2 text-sm font-semibold transition-all ${mode === "signup" ? "bg-white text-deepSpace" : "text-white/50 hover:text-white"}`}
+              >
+                Sign Up
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className={`rounded-lg py-2 text-sm font-semibold transition-all ${mode === "login" ? "bg-white text-deepSpace" : "text-white/50 hover:text-white"}`}
+              >
+                Log In
+              </button>
+            </div>
+
+            <div className="space-y-4 pt-1">
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="Email"
+                className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-neonCyan"
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Password"
+                className="w-full rounded-xl bg-black/30 border border-white/10 px-4 py-3 text-white outline-none focus:border-neonCyan"
+              />
+              <button
+                onClick={handleAuth}
+                disabled={isSubmitting}
                 className="w-full relative overflow-hidden group rounded-xl bg-white/10 border border-white/20 py-3 text-white font-medium transition-all duration-300 hover:shadow-[0_0_20px_rgba(0,209,255,0.3)]"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-neonCyan/20 to-electricViolet/20 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-500 ease-in-out" />
                 <span className="relative z-10 flex items-center justify-center gap-2">
-                  Sign Up
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {mode === "signup" ? "Create StudyMind Account" : "Log In"}
+                  {!isSubmitting ? <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /> : null}
                 </span>
               </button>
 
               <button
                 onClick={() => {
                   localStorage.setItem("studymind:mode", "demo");
+                  localStorage.setItem("studymind:user_id", "demo-user");
                   router.push("/onboarding");
                 }}
                 className="w-full relative overflow-hidden group rounded-xl bg-transparent border border-white/10 py-3 text-white/70 font-medium transition-all duration-300 hover:bg-white/5 hover:text-white"
@@ -92,12 +159,8 @@ export default function LoginPage() {
                   Continue as Demo Student
                 </span>
               </button>
-            </div>
-            
-            <div className="mt-8 text-center flex flex-col gap-2">
-              <a href="#" className="text-xs text-white/40 hover:text-neonCyan transition-colors">
-                Already have an account? Log in
-              </a>
+              {error ? <p className="text-sm font-semibold text-red-300">{error}</p> : null}
+              {status ? <p className="text-sm font-semibold text-emerald-300">{status}</p> : null}
             </div>
           </div>
         </div>
