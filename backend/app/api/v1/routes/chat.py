@@ -10,6 +10,11 @@ from app.services.analysis_service import analyze_user
 router = APIRouter()
 
 
+@router.get("/health")
+def gemini_health() -> dict[str, object]:
+    return ai_provider.gemini_health()
+
+
 @router.post("", response_model=ChatResponse)
 def chat(
     payload: ChatRequest,
