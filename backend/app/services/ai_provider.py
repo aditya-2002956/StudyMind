@@ -64,22 +64,19 @@ class AIProvider:
         subject = chapter["subject"]
         topics = chapter["topics"]
         internet_context = self._competitive_internet_context(subject, topics) if difficulty == Difficulty.competitive else []
-        if not settings.gemini_api_key:
-            raise RuntimeError("Gemini is not configured. Add GEMINI_API_KEY on Render and redeploy.")
-
-        try:
-            return self._randomize_questions(self._gemini_quiz_from_text(
-                subject=subject,
-                source_text=source_text,
-                topics=topics,
-                question_count=question_count,
-                difficulty=difficulty,
-                internet_context=internet_context,
-            ))
-        except Exception as exc:
-            error = self._safe_error(exc)
-            logger.warning("Gemini PDF quiz failed: %s", error)
-            raise RuntimeError(f"Gemini PDF quiz failed: {error}") from exc
+        if settings.gemini_api_key:
+            try:
+                return self._randomize_questions(self._gemini_quiz_from_text(
+                    subject=subject,
+                    source_text=source_text,
+                    topics=topics,
+                    question_count=question_count,
+                    difficulty=difficulty,
+                    internet_context=internet_context,
+                ))
+            except Exception as exc:
+                logger.warning("Gemini PDF quiz failed: %s", self._safe_error(exc))
+        return self._randomize_questions(self._local_quiz_from_text(subject, source_text, question_count, difficulty, topics))
 
     def gemini_health(self) -> dict[str, object]:
         if not settings.gemini_api_key:

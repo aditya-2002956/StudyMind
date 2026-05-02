@@ -91,12 +91,7 @@ export function UploadZone({
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
-        const detail = typeof data?.detail === "string" ? data.detail : "Could not generate quiz from this PDF.";
-        throw new Error(
-          detail.includes("Gemini")
-            ? `${detail} Check Render environment variables: GEMINI_API_KEY and GEMINI_MODEL.`
-            : detail
-        );
+        throw new Error(data?.detail || "Could not generate quiz from this PDF.");
       }
       onQuizReady(data, selectedFile, subject || "Uploaded PDF");
     } catch (err) {
