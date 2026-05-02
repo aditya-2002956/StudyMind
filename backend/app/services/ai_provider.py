@@ -451,8 +451,24 @@ class AIProvider:
             return self._permutation_combination_questions(subject, difficulty, question_count, start_index)
         if "trigonometric functions" in text or "trigonometric ratios" in text or "radian" in text:
             return self._trigonometry_questions(subject, difficulty, question_count, start_index)
+        if self._is_solutions_chapter(text):
+            return self._chemistry_solutions_questions(subject, difficulty, question_count, start_index)
 
         return self._generic_chapter_questions(subject, source_text, difficulty, question_count, topics, start_index)
+
+    def _is_solutions_chapter(self, text: str) -> bool:
+        markers = [
+            "vapour pressure",
+            "raoult",
+            "henry",
+            "colligative",
+            "molarity",
+            "molality",
+            "osmotic pressure",
+            "relative lowering",
+            "mole fraction",
+        ]
+        return "solution" in text and sum(1 for marker in markers if marker in text) >= 2
 
     def _permutation_combination_questions(
         self,
@@ -609,6 +625,149 @@ class AIProvider:
                 QuizQuestion(
                     id=f"q-pc-{start_index + offset + 1}",
                     subject=subject,
+                    topic=item["topic"],
+                    difficulty=difficulty,
+                    prompt=item["prompt"],
+                    options=item["options"],
+                    correct_option_index=item["correct"],
+                    explanation=item["explanation"],
+                )
+            )
+        return selected
+
+    def _chemistry_solutions_questions(
+        self,
+        subject: str,
+        difficulty: Difficulty,
+        question_count: int,
+        start_index: int,
+    ) -> list[QuizQuestion]:
+        medium_bank = [
+            {
+                "topic": "Vapour Pressure",
+                "prompt": "For a liquid solution, what does vapour pressure measure?",
+                "options": [
+                    "The pressure exerted by vapour in equilibrium with the liquid",
+                    "The pressure needed to compress the liquid to half its volume",
+                    "The mass of solute dissolved per litre",
+                    "The force between solute particles only",
+                ],
+                "correct": 0,
+                "explanation": "Vapour pressure is the pressure of vapour above a liquid when vapour and liquid are in equilibrium.",
+            },
+            {
+                "topic": "Raoult's Law",
+                "prompt": "According to Raoult's law for an ideal solution, the partial vapour pressure of a volatile component is proportional to what?",
+                "options": [
+                    "Its mole fraction in the solution",
+                    "The molar mass of the solvent only",
+                    "The colour of the solution",
+                    "The total mass of the container",
+                ],
+                "correct": 0,
+                "explanation": "Raoult's law states p_i = x_i p_i^0, so partial vapour pressure depends on mole fraction.",
+            },
+            {
+                "topic": "Mole Fraction",
+                "prompt": "A solution contains 2 mol ethanol and 3 mol water. What is the mole fraction of ethanol?",
+                "options": ["0.40", "0.60", "0.67", "1.50"],
+                "correct": 0,
+                "explanation": "Mole fraction of ethanol = 2 / (2 + 3) = 0.40.",
+            },
+            {
+                "topic": "Molality",
+                "prompt": "Which concentration term uses kilograms of solvent in the denominator?",
+                "options": ["Molality", "Molarity", "Mole fraction", "Mass percentage"],
+                "correct": 0,
+                "explanation": "Molality is moles of solute per kilogram of solvent.",
+            },
+            {
+                "topic": "Colligative Properties",
+                "prompt": "Which property depends mainly on the number of solute particles, not their chemical identity?",
+                "options": ["Osmotic pressure", "Colour", "Odour", "Crystal shape"],
+                "correct": 0,
+                "explanation": "Colligative properties such as osmotic pressure depend on the number of solute particles.",
+            },
+            {
+                "topic": "Henry's Law",
+                "prompt": "Henry's law is mainly used to describe the solubility of which type of solute in a liquid?",
+                "options": ["Gas", "Non-volatile solid", "Metal crystal", "Insoluble precipitate"],
+                "correct": 0,
+                "explanation": "Henry's law relates the solubility of a gas in a liquid to the partial pressure of the gas.",
+            },
+        ]
+        hard_bank = [
+            {
+                "topic": "Raoult's Law",
+                "prompt": "A component has pure vapour pressure 80 mm Hg and mole fraction 0.25 in an ideal solution. What is its partial vapour pressure?",
+                "options": ["20 mm Hg", "40 mm Hg", "80 mm Hg", "320 mm Hg"],
+                "correct": 0,
+                "explanation": "Using p = x p0, p = 0.25 x 80 = 20 mm Hg.",
+            },
+            {
+                "topic": "Molarity",
+                "prompt": "How many moles of solute are present in 250 mL of a 2.0 M solution?",
+                "options": ["0.50 mol", "8.0 mol", "2.0 mol", "0.125 mol"],
+                "correct": 0,
+                "explanation": "Moles = molarity x volume in litres = 2.0 x 0.250 = 0.50 mol.",
+            },
+            {
+                "topic": "Relative Lowering of Vapour Pressure",
+                "prompt": "Adding a non-volatile solute to a volatile solvent lowers vapour pressure mainly because:",
+                "options": [
+                    "The mole fraction of solvent at the surface decreases",
+                    "The solvent becomes chemically destroyed",
+                    "The solute increases the number of solvent molecules escaping",
+                    "The solution stops having a liquid phase",
+                ],
+                "correct": 0,
+                "explanation": "A non-volatile solute reduces solvent mole fraction, so fewer solvent molecules escape into vapour.",
+            },
+            {
+                "topic": "Osmotic Pressure",
+                "prompt": "Two solutions at the same temperature have osmotic pressures 2 atm and 6 atm. If they are ideal and contain non-electrolytes, what can be inferred?",
+                "options": [
+                    "The second has three times the molar concentration",
+                    "The first has three times the molar concentration",
+                    "Both have the same molar concentration",
+                    "Osmotic pressure is unrelated to concentration",
+                ],
+                "correct": 0,
+                "explanation": "For ideal dilute solutions, osmotic pressure pi = CRT, so it is proportional to molar concentration at same temperature.",
+            },
+        ]
+        competitive_bank = [
+            {
+                "topic": "Raoult's Law",
+                "prompt": "An ideal binary solution has xA = 0.3, pA0 = 100 mm Hg and pB0 = 60 mm Hg. What is the total vapour pressure?",
+                "options": ["72 mm Hg", "88 mm Hg", "48 mm Hg", "160 mm Hg"],
+                "correct": 0,
+                "explanation": "pA = 0.3 x 100 = 30; xB = 0.7, pB = 0.7 x 60 = 42. Total = 72 mm Hg.",
+            },
+            {
+                "topic": "Colligative Properties",
+                "prompt": "Which 0.1 M aqueous solution should show the largest ideal osmotic pressure at the same temperature?",
+                "options": ["AlCl3", "NaCl", "Glucose", "Urea"],
+                "correct": 0,
+                "explanation": "AlCl3 ideally gives 4 ions, NaCl gives 2, while glucose and urea do not ionize. More particles means higher osmotic pressure.",
+            },
+            {
+                "topic": "Henry's Law",
+                "prompt": "For a gas obeying Henry's law, if partial pressure over a liquid is doubled at constant temperature, its solubility approximately:",
+                "options": ["Doubles", "Halves", "Becomes zero", "Remains unchanged"],
+                "correct": 0,
+                "explanation": "Henry's law gives solubility proportional to gas pressure at constant temperature.",
+            },
+        ]
+        bank = competitive_bank if difficulty == Difficulty.competitive else hard_bank if difficulty == Difficulty.hard else medium_bank
+
+        selected: list[QuizQuestion] = []
+        for offset in range(question_count):
+            item = bank[(start_index + offset) % len(bank)]
+            selected.append(
+                QuizQuestion(
+                    id=f"q-solutions-{start_index + offset + 1}",
+                    subject=subject if subject and subject.lower() != "uploaded pdf" else "Solutions",
                     topic=item["topic"],
                     difficulty=difficulty,
                     prompt=item["prompt"],
@@ -907,6 +1066,21 @@ class AIProvider:
                     "Unit Circle",
                     "Quadrants and Signs",
                     "Basic Identities",
+                ],
+            }
+        if self._is_solutions_chapter(text):
+            return {
+                "subject": "Solutions",
+                "topics": [
+                    "Types of Solutions",
+                    "Vapour Pressure",
+                    "Raoult's Law",
+                    "Henry's Law",
+                    "Mole Fraction",
+                    "Molarity",
+                    "Molality",
+                    "Colligative Properties",
+                    "Osmotic Pressure",
                 ],
             }
         return {"subject": fallback_subject or "Uploaded PDF", "topics": self._topics_from_text(source_text)}
